@@ -1,0 +1,10 @@
+--// DOCKER CHEAT SHEET \\--
+
+# Show Container and their network
+docker ps --format '{{ .ID }} {{ .Names }} {{ json .Networks }}'
+
+# Show Container logs
+docker logs <container-name>
+
+# compose docker-compose and run container
+docker compose -f docker-compose.yml up -d
