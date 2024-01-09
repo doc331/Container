@@ -1,0 +1,56 @@
+version: "3.9"
+services:
+   traefik:
+     image: "traefik:latest"
+     restart: unless-stopped
+     container_name: "traefik"
+     security_opt:
+       - no-new-privileges:true
+     command:
+       - --log.level=DEBUG
+       - --providers.docker=true
+       - --providers.docker.exposedbydefault=false
+       - --providers.docker.network=traefik
+       - --entrypoints.web.address=:80
+       - --entrypoints.web.http.redirections.entryPoint.to=websecure
+       - --entrypoints.web.http.redirections.entryPoint.scheme=https
+       - --entrypoints.websecure.address=:443
+       - --entrypoints.websecure.http.tls.certResolver=myresolver
+       - --entrypoints.websecure.http.tls.domains[0].main=mydnsname.duckdns.org
+       - --entrypoints.websecure.http.tls.domains[0].sans=*.mydnsname.duckdns.org
+       - --certificatesresolvers.myresolver.acme.dnschallenge.delaybeforecheck=60
+       - --certificatesresolvers.myresolver.acme.dnschallenge.resolvers=1.1.1.1:53,99.79.143.35:53
+       - --certificatesresolvers.myresolver.acme.dnschallenge.disablePropagationCheck=true
+       - --certificatesresolvers.myresolver.acme.dnschallenge.provider=duckdns
+       - --certificatesresolvers.myresolver.acme.email=mydnsname@protonmail.com
+       - --certificatesresolvers.myresolver.acme.storage=/acme.json
+       - --api.dashboard=true
+       - --api.insecure=true
+       - --serverstransport.insecureskipverify=true
+       - --accesslog=true
+       - --accesslog.filepath=/var/log/access.log
+     ports:
+       - "80:80"
+       - "443:443"
+#       - "8080:8080"
+     environment:
+       - DUCKDNS_TOKEN=11be2a98-2d0d-4661-9a6a-0cc753a2da16
+     volumes:
+       - "./data/letsencrypt/acme.json:/acme.json"
+       - "./data/log:/var/log"
+       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+     labels:
+       - "traefik.enable=true"
+       - "traefik.http.routers.dashboard.service=api@internal"
+       - "traefik.http.routers.dashboard.rule=Host(`localdns.mynet.de`)"
+       - "traefik.http.routers.dashboard.middlewares=myauth"
+      # - "traefik.http.services.traefik-dashboard.loadbalancer.server.port=8080"
+       - "traefik.http.middlewares.myauth.basicauth.users=root:use-htpasswd-Generator"
+     networks:
+       - default
+       - traefik
+networks:
+  traefik:
+    external: true
+  default:
+    driver: bridge
