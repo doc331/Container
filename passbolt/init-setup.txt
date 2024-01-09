@@ -1,0 +1,7 @@
+docker exec -it passbolt-passbolt-1 su -m -c "/usr/share/php/passbolt/bin/cake \
+                                passbolt register_user \
+                                -u user@local.net \
+                                -f John \
+                                -l Doe \
+                                -r admin" -s /bin/sh www-data
+
