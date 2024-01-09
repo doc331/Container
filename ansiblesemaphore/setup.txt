@@ -1,0 +1,25 @@
+Playbook Repo:
+
+Create directory in ./config/repo
+Copy Playbooks to ./config/repo
+
+Semaphore UI:
+Create Placebo Key -> Type: None
+Create New Repo
+URL: /etc/semaphore/repo ( local: absolute Path )
+AccessKey: placebo
+
+Environment:
+all
+
+Inventory:
+User: Key
+Sudo: Key
+Type: Static
+[website]
+bla.blub.com
+172.18.8.41
+
+Template:
+CLI-Argument
+["-e","hosts=website"]

@@ -1,0 +1,58 @@
+---
+volumes:
+  semaphore-mysql:
+    driver: local
+services:
+  mysql:
+    image: mysql:latest
+    hostname: mysql
+    volumes:
+      - semaphore-mysql:/var/lib/mysql
+    environment:
+      - MYSQL_RANDOM_ROOT_PASSWORD=yes
+      - MYSQL_DATABASE=semaphore
+      - MYSQL_USER=semaphore
+      - MYSQL_PASSWORD=secureDBpassword01
+    restart: unless-stopped
+    networks:
+      - traefik
+  semaphore:
+    container_name: ansiblesemaphore
+    image: semaphoreui/semaphore:latest
+    user: "${UID}:${GID}"
+#    ports:
+#      - 3000:3000
+    environment:
+      - SEMAPHORE_DB_USER=semaphore
+      - SEMAPHORE_DB_PASS=secureDBpassword01
+      - SEMAPHORE_DB_HOST=mysql
+      - SEMAPHORE_DB_PORT=3306
+      - SEMAPHORE_DB_DIALECT=mysql
+      - SEMAPHORE_DB=semaphore
+      - SEMAPHORE_PLAYBOOK_PATH=/tmp/semaphore/
+      - SEMAPHORE_ADMIN_PASSWORD=passchangeme
+      - SEMAPHORE_ADMIN_NAME=admin
+      - SEMAPHORE_ADMIN_EMAIL=admin@localhost
+      - SEMAPHORE_ADMIN=admin
+      - SEMAPHORE_ACCESS_KEY_ENCRYPTION=IaublablalbalblakkNTwyXASPW0-CHANGE-ME-Ls1eRm07uxc=
+      - ANSIBLE_HOST_KEY_CHECKING=false
+    networks:
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ansible.rule=Host(`your.dns.name.com`)"
+      - "traefik.http.routers.ansible.entrypoints=websecure"
+      - "traefik.http.services.ansible.loadbalancer.server.port=3000"
+      - "traefik.http.routers.ansible.service=ansible"
+      - "traefik.http.routers.ansible.tls.certresolver=myresolver"
+    volumes:
+      - ./inventory/:/inventory:rw
+      - ./authorized-keys/:/authorized-keys:rw
+      - ./config/:/etc/semaphore:rw
+    restart: unless-stopped
+    depends_on:
+      - mysql
+networks:
+  traefik:
+    external:
+      true
