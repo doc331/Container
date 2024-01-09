@@ -1,0 +1,39 @@
+## docker compose -f docker-compose.yml up -d
+
+## docker exec teleport tctl users add user01 --logins=user01,root --roles=access,editor
+
+##
+
+---
+services:
+  teleport:
+    image: public.ecr.aws/gravitational/teleport-distroless:14
+    container_name: teleport
+    hostname: localhost
+    restart: unless-stopped
+#    command: "--insecure-no-tls"
+    networks:
+      - traefik
+#    ports:
+#      - "3080:3080"
+#      - "3023:3023"
+#      - "3024:3024"
+#      - "3025:3025"
+    volumes:
+      - ./config:/etc/teleport
+      - ./data:/var/lib/teleport
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.services.teleport.loadbalancer.server.port=3080"
+      - "traefik.http.services.teleport.loadbalancer.server.scheme=https"
+      - "traefik.http.routers.teleport-https.entrypoints=websecure"
+      - "traefik.http.routers.teleport-https.rule=HostRegexp(`tele.duckdns.org`, `{subhost:[a-z]+}.tele.duckdns.org`, `{subdomain:[a-z0-9]+}.teleport.cluster.local`, `teleport.cluster.local`)"
+      - "traefik.http.routers.teleport-https.tls.certresolver=myresolver"
+
+#serversTransport:
+#  insecureSkipVerify: true
+
+networks:
+  traefik:
+    external:
+      true
