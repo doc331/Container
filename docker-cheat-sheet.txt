@@ -11,3 +11,6 @@ docker compose -f docker-compose.yml up -d
 
 # Show Container Name and IP Address
 docker inspect -f '{{.Name}} - {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -aq)
+
+# Create a new network 
+docker network create -d bridge my-bridge-network
