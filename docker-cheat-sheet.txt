@@ -8,3 +8,6 @@ docker logs <container-name>
 
 # compose docker-compose and run container
 docker compose -f docker-compose.yml up -d
+
+# Show Container Name and IP Address
+docker inspect -f '{{.Name}} - {{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $(docker ps -aq)
