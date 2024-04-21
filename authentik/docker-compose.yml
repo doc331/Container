@@ -1,0 +1,131 @@
+---
+services:
+  postgresql:
+    image: docker.io/library/postgres:16.2
+    restart: unless-stopped
+    container_name: authentik-postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - database:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${PG_PASS}
+      - POSTGRES_USER=${PG_USER:-authentik}
+      - POSTGRES_DB=${PG_DB:-authentik}
+    env_file:
+      - .env
+    networks:
+      - default
+  redis:
+    image: docker.io/library/redis:7.2.4
+    container_name: authentik-redis
+    command: --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 20s
+      interval: 30s
+      retries: 5
+      timeout: 3s
+    restart: unless-stopped
+    networks:
+      - default
+  server:
+    image: ghcr.io/goauthentik/server:2024.2.3
+    container_name: authentik-server
+    command: server
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: ${AUTHENTIK_ERROR_REPORTING:-false}
+      # (Required)  To generate a secret key run the following command:
+      #             echo $(openssl rand -base64 32)
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?error}
+      # (Optional)  Enable Error Reporting
+      # - AUTHENTIK_ERROR_REPORTING__ENABLED=${AUTHENTIK_ERROR_REPORTING:-false}
+      # (Optional)  Enable Email Sending
+      # - AUTHENTIK_EMAIL__HOST=${EMAIL_HOST:?error}
+      # - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT:-25}
+      # - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USERNAME:?error}
+      # - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASSWORD:?error}
+      # - AUTHENTIK_EMAIL__USE_TLS=${EMAIL_USE_TLS:-false}
+      # - AUTHENTIK_EMAIL__USE_SSL=${EMAIL_USE_SSL:-false}
+      # - AUTHENTIK_EMAIL__TIMEOUT=${EMAIL_TIMEOUT:-10}
+      # - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM:?error}
+    labels:
+      traefik.enable: true
+      traefik.http.routers.authentik.entryPoints: websecure
+      traefik.http.routers.authentik.rule: Host(`auth.domain.org`) || HostRegexp(`{subdomain:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?}.domain.org`) && PathPrefix(`/outpost.goauthentik.io/`)
+      traefik.http.routers.authentik.tls: true
+      traefik.http.routers.authentik.tls.certresolver: myresolver
+      traefik.http.routers.authentik.service: authentik
+      traefik.http.services.authentik.loadbalancer.server.port: 9000
+      traefik.docker.network: traefik
+    volumes:
+      - ./media:/media
+      - ./custom-templates:/templates
+    depends_on:
+      - postgresql
+      - redis
+    restart: unless-stopped
+    networks:
+      - traefik
+      - default
+    env_file:
+      - .env
+  worker:
+    image: ghcr.io/goauthentik/server:2024.2.3
+    container_name: authentik-worker
+    command: worker
+    environment:
+      AUTHENTIK_REDIS__HOST: authentik-redis
+      AUTHENTIK_POSTGRESQL__HOST: authentik-postgres
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      # (Required)  To generate a secret key run the following command:
+      #             echo $(openssl rand -base64 32)
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?error}
+      # (Optional)  Enable Error Reporting
+      # - AUTHENTIK_ERROR_REPORTING__ENABLED=${AUTHENTIK_ERROR_REPORTING:-false}
+      # (Optional)  Enable Email Sending
+      # - AUTHENTIK_EMAIL__HOST=${EMAIL_HOST:?error}
+      # - AUTHENTIK_EMAIL__PORT=${EMAIL_PORT:-25}
+      # - AUTHENTIK_EMAIL__USERNAME=${EMAIL_USERNAME:?error}
+      # - AUTHENTIK_EMAIL__PASSWORD=${EMAIL_PASSWORD:?error}
+      # - AUTHENTIK_EMAIL__USE_TLS=${EMAIL_USE_TLS:-false}
+      # - AUTHENTIK_EMAIL__USE_SSL=${EMAIL_USE_SSL:-false}
+      # - AUTHENTIK_EMAIL__TIMEOUT=${EMAIL_TIMEOUT:-10}
+      # - AUTHENTIK_EMAIL__FROM=${EMAIL_FROM:?error}
+    # (Optional)  When using the docker socket integration
+    #             See more for the docker socket integration here:
+    #             https://goauthentik.io/docs/outposts/integrations/docker
+    # user: root
+    volumes:
+      # (Optional)  When using the docker socket integration
+      # - /var/run/docker.sock:/var/run/docker.sock
+      - ./media:/media
+      - ./certs:/certs
+      - ./custom-templates:/templates
+    depends_on:
+      - postgresql
+      - redis
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - default
+volumes:
+  database:
+    driver: local
+networks:
+  default:
+    driver: bridge
+  traefik:
+    external: true
